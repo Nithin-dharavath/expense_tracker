@@ -1,0 +1,40 @@
+## Project Overview: Expense Tracker
+
+This is a **Flask-based expense tracking web application** in early development stage.
+
+### Structure
+
+```
+expense-tracker/
+├── app.py              # Main Flask application (3 routes working, 6 placeholders)
+├── database/
+│   └── db.py           # Database layer (empty - to be implemented)
+├── templates/
+│   ├── base.html       # Base template
+│   ├── landing.html    # Landing page
+│   ├── register.html   # User registration
+│   └── login.html      # Login page
+├── static/
+│   ├── css/style.css
+│   └── js/main.js
+├── requirements.txt    # Flask, werkzeug, pytest
+└── venv/               # Virtual environment
+```
+
+### Current State
+
+| Component | Status |
+|-----------|--------|
+| Flask app setup | ✓ Complete |
+| Landing/Register/Login routes | ✓ Complete |
+| Logout/Profile routes | ⏳ Placeholders |
+| Expense CRUD routes | ⏳ Placeholders |
+| Database layer (`db.py`) | ❌ Empty - needs implementation |
+
+### Pending Implementation (per `db.py` comments)
+
+1. `get_db()` - SQLite connection with `row_factory` and foreign keys
+2. `init_db()` - Create tables with `CREATE TABLE IF NOT EXISTS`
+3. `seed_db()` - Sample data for development
+
+This appears to be a learning project where students will incrementally build out the full expense tracking functionality across 9 steps.
