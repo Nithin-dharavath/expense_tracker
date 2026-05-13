@@ -112,7 +112,33 @@ def logout():
 @app.route("/profile")
 @login_required
 def profile():
-    return "Profile page — logged in successfully!"
+    mock_user_profile = {
+        "user": {
+            "name": "Nitin Sharma",
+            "email": "nitin.sharma@example.com",
+            "join_date": "January 12, 2024",
+            "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Nitin"
+        },
+        "stats": {
+            "total_spent": "₹12,450.00",
+            "transaction_count": 42,
+            "top_category": "Dining"
+        },
+        "category_breakdown": [
+            {"category": "Dining", "amount": "₹4,200", "percentage": 33.7},
+            {"category": "Transport", "amount": "₹3,100", "percentage": 24.9},
+            {"category": "Grocery", "amount": "₹2,800", "percentage": 22.5},
+            {"category": "Entertainment", "amount": "₹2,350", "percentage": 18.9},
+        ],
+        "transactions": [
+            {"date": "2024-05-12", "description": "Starbucks Coffee", "category": "Dining", "amount": "-₹450.00"},
+            {"date": "2024-05-11", "description": "Uber Ride", "category": "Transport", "amount": "-₹220.00"},
+            {"date": "2024-05-10", "description": "Amazon Fresh", "category": "Grocery", "amount": "-₹1,200.00"},
+            {"date": "2024-05-08", "description": "Netflix Monthly", "category": "Entertainment", "amount": "-₹499.00"},
+            {"date": "2024-05-05", "description": "Local Restaurant", "category": "Dining", "amount": "-₹850.00"},
+        ]
+    }
+    return render_template("profile.html", profile=mock_user_profile)
 
 
 @app.route("/expenses/add")
