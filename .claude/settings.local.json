@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git init)"
+      "Bash(git init)",
+      "Skill(test-feature)",
+      "Bash(mkdir -p tests)",
+      "Bash(python -m pytest tests/test_06-date-filter-profile-page.py -v)"
     ]
   }
 }

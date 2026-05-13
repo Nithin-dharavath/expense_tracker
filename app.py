@@ -2,7 +2,10 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 from database.db import init_db, seed_db, get_db
+from database.queries import get_summary_stats, get_recent_transactions, get_category_breakdown
 from functools import wraps
+from datetime import datetime, date
+from dateutil.relativedelta import relativedelta
 
 app = Flask(__name__)
 app.secret_key = "spendly-super-secret-key"
@@ -113,28 +116,40 @@ def logout():
 @login_required
 def profile():
     user_id = session.get("user_id")
-    db = get_db()
+
+    # Date Filtering Logic
+    date_from = request.args.get("date_from")
+    date_to = request.args.get("date_to")
+
+    # Validate dates
+    def validate_date(d):
+        if not d: return None
+        try:
+            return datetime.strptime(d, "%Y-%m-%d").date().isoformat()
+        except ValueError:
+            return None
+
+    date_from = validate_date(date_from)
+    date_to = validate_date(date_to)
+
+    if date_from and date_to and date_from > date_to:
+        flash("Start date must be before end date.")
+        date_from = date_to = None
 
     # Fetch User Profile
+    db = get_db()
     user_row = db.execute(
         "SELECT name, email, created_at FROM users WHERE id = ?",
         (user_id,)
     ).fetchone()
+    db.close()
 
-    # Calculate Summary Stats
-    stats_row = db.execute(
-        "SELECT SUM(amount) as total_spent, COUNT(id) as transaction_count FROM expenses WHERE user_id = ?",
-        (user_id,)
-    ).fetchone()
+    # Fetch data using query helpers
+    stats_row = get_summary_stats(user_id, date_from, date_to)
+    total_spent_val = stats_row["total_spent"] if stats_row and stats_row["total_spent"] is not None else 0.0
+    transaction_count = stats_row["transaction_count"] if stats_row else 0
 
-    total_spent_val = stats_row["total_spent"] if stats_row["total_spent"] is not None else 0.0
-    transaction_count = stats_row["transaction_count"]
-
-    # Fetch Category Breakdown
-    categories_rows = db.execute(
-        "SELECT category, SUM(amount) as total FROM expenses WHERE user_id = ? GROUP BY category ORDER BY total DESC",
-        (user_id,)
-    ).fetchall()
+    categories_rows = get_category_breakdown(user_id, date_from, date_to)
 
     category_breakdown = []
     top_category = "N/A"
@@ -153,13 +168,7 @@ def profile():
             "percentage": round(percentage, 1)
         })
 
-    # Fetch Transaction History
-    transactions_rows = db.execute(
-        "SELECT date, description, category, amount FROM expenses WHERE user_id = ? ORDER BY date DESC",
-        (user_id,)
-    ).fetchall()
-
-    db.close()
+    transactions_rows = get_recent_transactions(user_id, date_from=date_from, date_to=date_to)
 
     user_profile = {
         "user": {
@@ -184,7 +193,29 @@ def profile():
             for row in transactions_rows
         ]
     }
-    return render_template("profile.html", profile=user_profile)
+    # Calculate presets for the template
+    today = date.today()
+    this_month_start = today.replace(day=1).isoformat()
+    this_month_end = today.isoformat()
+
+    last_3m_start = (today - relativedelta(months=3)).isoformat()
+    last_3m_end = today.isoformat()
+
+    last_6m_start = (today - relativedelta(months=6)).isoformat()
+    last_6m_end = today.isoformat()
+
+    return render_template(
+        "profile.html",
+        profile=user_profile,
+        date_from=date_from,
+        date_to=date_to,
+        this_month_start=this_month_start,
+        this_month_end=this_month_end,
+        last_3m_start=last_3m_start,
+        last_3m_end=last_3m_end,
+        last_6m_start=last_6m_start,
+        last_6m_end=last_6m_end
+    )
 
 
 @app.route("/expenses/add")
