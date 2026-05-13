@@ -112,33 +112,79 @@ def logout():
 @app.route("/profile")
 @login_required
 def profile():
-    mock_user_profile = {
+    user_id = session.get("user_id")
+    db = get_db()
+
+    # Fetch User Profile
+    user_row = db.execute(
+        "SELECT name, email, created_at FROM users WHERE id = ?",
+        (user_id,)
+    ).fetchone()
+
+    # Calculate Summary Stats
+    stats_row = db.execute(
+        "SELECT SUM(amount) as total_spent, COUNT(id) as transaction_count FROM expenses WHERE user_id = ?",
+        (user_id,)
+    ).fetchone()
+
+    total_spent_val = stats_row["total_spent"] if stats_row["total_spent"] is not None else 0.0
+    transaction_count = stats_row["transaction_count"]
+
+    # Fetch Category Breakdown
+    categories_rows = db.execute(
+        "SELECT category, SUM(amount) as total FROM expenses WHERE user_id = ? GROUP BY category ORDER BY total DESC",
+        (user_id,)
+    ).fetchall()
+
+    category_breakdown = []
+    top_category = "N/A"
+
+    for i, row in enumerate(categories_rows):
+        category = row["category"]
+        amount = row["total"]
+        percentage = (amount / total_spent_val * 100) if total_spent_val > 0 else 0
+
+        if i == 0:
+            top_category = category
+
+        category_breakdown.append({
+            "category": category,
+            "amount": f"₹{amount:.2f}",
+            "percentage": round(percentage, 1)
+        })
+
+    # Fetch Transaction History
+    transactions_rows = db.execute(
+        "SELECT date, description, category, amount FROM expenses WHERE user_id = ? ORDER BY date DESC",
+        (user_id,)
+    ).fetchall()
+
+    db.close()
+
+    user_profile = {
         "user": {
-            "name": "Nitin Sharma",
-            "email": "nitin.sharma@example.com",
-            "join_date": "January 12, 2024",
-            "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Nitin"
+            "name": user_row["name"],
+            "email": user_row["email"],
+            "join_date": user_row["created_at"],
+            "avatar": f"https://api.dicebear.com/7.x/avataaars/svg?seed={user_row['name']}"
         },
         "stats": {
-            "total_spent": "₹12,450.00",
-            "transaction_count": 42,
-            "top_category": "Dining"
+            "total_spent": f"₹{total_spent_val:.2f}",
+            "transaction_count": transaction_count,
+            "top_category": top_category
         },
-        "category_breakdown": [
-            {"category": "Dining", "amount": "₹4,200", "percentage": 33.7},
-            {"category": "Transport", "amount": "₹3,100", "percentage": 24.9},
-            {"category": "Grocery", "amount": "₹2,800", "percentage": 22.5},
-            {"category": "Entertainment", "amount": "₹2,350", "percentage": 18.9},
-        ],
+        "category_breakdown": category_breakdown,
         "transactions": [
-            {"date": "2024-05-12", "description": "Starbucks Coffee", "category": "Dining", "amount": "-₹450.00"},
-            {"date": "2024-05-11", "description": "Uber Ride", "category": "Transport", "amount": "-₹220.00"},
-            {"date": "2024-05-10", "description": "Amazon Fresh", "category": "Grocery", "amount": "-₹1,200.00"},
-            {"date": "2024-05-08", "description": "Netflix Monthly", "category": "Entertainment", "amount": "-₹499.00"},
-            {"date": "2024-05-05", "description": "Local Restaurant", "category": "Dining", "amount": "-₹850.00"},
+            {
+                "date": row["date"],
+                "description": row["description"],
+                "category": row["category"],
+                "amount": f"-₹{row['amount']:.2f}"
+            }
+            for row in transactions_rows
         ]
     }
-    return render_template("profile.html", profile=mock_user_profile)
+    return render_template("profile.html", profile=user_profile)
 
 
 @app.route("/expenses/add")
