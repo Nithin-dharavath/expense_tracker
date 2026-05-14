@@ -6,7 +6,8 @@
       "Bash(mkdir -p tests)",
       "Bash(python -m pytest tests/test_06-date-filter-profile-page.py -v)",
       "Bash(python *)",
-      "Skill(code-review-feature)"
+      "Skill(code-review-feature)",
+      "mcp__github__get_me"
     ]
   }
 }
