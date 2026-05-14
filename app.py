@@ -1,14 +1,18 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
-from database.db import init_db, seed_db, get_db
-from database.queries import get_summary_stats, get_recent_transactions, get_category_breakdown
+import logging
+from database.db import init_db, seed_db, get_db, close_db
+from database.queries import get_summary_stats, get_recent_transactions, get_category_breakdown, create_expense
 from functools import wraps
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 
 app = Flask(__name__)
 app.secret_key = "spendly-super-secret-key"
+app.config['DATABASE'] = 'spendly.db'
+
+app.teardown_appcontext(close_db)
 
 def login_required(f):
     @wraps(f)
@@ -61,8 +65,6 @@ def register():
             db.commit()
         except sqlite3.IntegrityError:
             return render_template("register.html", error="This email is already registered.")
-        finally:
-            db.close()
 
         return redirect(url_for("login"))
 
@@ -80,7 +82,6 @@ def login():
 
         db = get_db()
         user = db.execute("SELECT id, password_hash FROM users WHERE email = ?", (email,)).fetchone()
-        db.close()
 
         if user and check_password_hash(user["password_hash"], password):
             session["user_id"] = user["id"]
@@ -142,7 +143,6 @@ def profile():
         "SELECT name, email, created_at FROM users WHERE id = ?",
         (user_id,)
     ).fetchone()
-    db.close()
 
     # Fetch data using query helpers
     stats_row = get_summary_stats(user_id, date_from, date_to)
@@ -253,17 +253,14 @@ def add_expense():
         if category not in categories:
             return render_template("add_expense.html", categories=categories, error="Invalid category selected.")
 
+        if description and len(description) > 255:
+            return render_template("add_expense.html", categories=categories, error="Description must be 255 characters or less.")
+
         try:
-            db = get_db()
-            db.execute(
-                "INSERT INTO expenses (user_id, amount, category, date, description) VALUES (?, ?, ?, ?, ?)",
-                (session.get("user_id"), amount_val, category, date, description)
-            )
-            db.commit()
-        except sqlite3.Error as e:
-            return render_template("add_expense.html", categories=categories, error=f"Database error: {e}")
-        finally:
-            db.close()
+            create_expense(session.get("user_id"), amount_val, category, date, description)
+        except sqlite3.Error:
+            logging.exception("Database error while creating expense")
+            return render_template("add_expense.html", categories=categories, error="An unexpected error occurred while saving the expense. Please try again.")
 
         return redirect(url_for("profile"))
 

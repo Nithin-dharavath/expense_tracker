@@ -13,21 +13,22 @@ from dateutil.relativedelta import relativedelta
 from app import app as flask_app
 import database.db
 import database.db
+import database.db
 from database.db import init_db, get_db
 
 
 
 @pytest.fixture
 def app():
+    db_uri = 'file:memdb2?mode=memory&cache=shared'
     flask_app.config.update({
         'TESTING': True,
-        'DATABASE': ':memory:',
+        'DATABASE': db_uri,
         'SECRET_KEY': 'test-secret',
         'WTF_CSRF_ENABLED': False,
     })
-        # Override the database module's DATABASE variable to use in-memory database
-        import database.db
-        database.db.DATABASE = ':memory:'
+    import database.db
+    database.db.DATABASE = db_uri
     # Override the database module's DATABASE variable to use in-memory database
     import database.db
     database.db.DATABASE = ':memory:'
