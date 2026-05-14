@@ -223,9 +223,52 @@ def profile():
 def analytics():
     return render_template("analytics.html")
 
-@app.route("/expenses/add")
+@app.route("/expenses/add", methods=["GET", "POST"])
+@login_required
 def add_expense():
-    return "Add expense — coming in Step 7"
+    categories = ["Food", "Transport", "Bills", "Health", "Entertainment", "Shopping", "Other"]
+
+    if request.method == "POST":
+        amount = request.form.get("amount")
+        category = request.form.get("category")
+        date = request.form.get("date")
+        description = request.form.get("description")
+
+        # Validation
+        if not amount or not category or not date:
+            return render_template("add_expense.html", categories=categories, error="Amount, category, and date are required.")
+
+        try:
+            amount_val = float(amount)
+            if amount_val <= 0:
+                raise ValueError("Amount must be positive.")
+        except ValueError:
+            return render_template("add_expense.html", categories=categories, error="Please enter a valid positive amount.")
+
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            return render_template("add_expense.html", categories=categories, error="Please enter a valid date.")
+
+        if category not in categories:
+            return render_template("add_expense.html", categories=categories, error="Invalid category selected.")
+
+        try:
+            db = get_db()
+            db.execute(
+                "INSERT INTO expenses (user_id, amount, category, date, description) VALUES (?, ?, ?, ?, ?)",
+                (session.get("user_id"), amount_val, category, date, description)
+            )
+            db.commit()
+        except sqlite3.Error as e:
+            return render_template("add_expense.html", categories=categories, error=f"Database error: {e}")
+        finally:
+            db.close()
+
+        return redirect(url_for("profile"))
+
+    return render_template("add_expense.html", categories=categories)
+
 
 
 @app.route("/expenses/<int:id>/edit")
