@@ -5,7 +5,8 @@
       "Skill(test-feature)",
       "Bash(mkdir -p tests)",
       "Bash(python -m pytest tests/test_06-date-filter-profile-page.py -v)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Skill(code-review-feature)"
     ]
   }
 }
