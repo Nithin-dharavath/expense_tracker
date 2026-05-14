@@ -3,6 +3,7 @@
 {% block title %}My Profile | Spendly{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
 <style>
     .profile-container {
         max-width: var(--max-width);
@@ -178,6 +179,28 @@
             <p>{{ profile.user.email }}</p>
             <p>Member since {{ profile.user.join_date }}</p>
         </div>
+    </div>
+
+    <div class="filter-bar">
+        <div class="filter-presets">
+            <a href="{{ url_for('profile', date_from='', date_to='') }}"
+               class="preset-btn {{ 'active' if not date_from and not date_to }}">All Time</a>
+
+            <a href="{{ url_for('profile', date_from=this_month_start, date_to=this_month_end) }}"
+               class="preset-btn {{ 'active' if date_from == this_month_start and date_to == this_month_end }}">This Month</a>
+
+            <a href="{{ url_for('profile', date_from=last_3m_start, date_to=last_3m_end) }}"
+               class="preset-btn {{ 'active' if date_from == last_3m_start and date_to == last_3m_end }}">Last 3 Months</a>
+
+            <a href="{{ url_for('profile', date_from=last_6m_start, date_to=last_6m_end) }}"
+               class="preset-btn {{ 'active' if date_from == last_6m_start and date_to == last_6m_end }}">Last 6 Months</a>
+        </div >
+
+        <form class="custom-range" method="GET" action="{{ url_for('profile') }}">
+            <input type="date" name="date_from" value="{{ date_from or '' }}" placeholder="From">
+            <input type="date" name="date_to" value="{{ date_to or '' }}" placeholder="To">
+            <button type="submit" class="apply-btn">Apply</button>
+        </form>
     </div>
 
     <div class="stats-grid">
