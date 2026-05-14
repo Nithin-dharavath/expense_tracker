@@ -3,7 +3,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import logging
 from database.db import init_db, seed_db, get_db, close_db
-from database.queries import get_summary_stats, get_recent_transactions, get_category_breakdown, create_expense
+from database.queries import get_summary_stats, get_recent_transactions, get_category_breakdown, create_expense, get_expense_by_id, update_expense
 from functools import wraps
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
@@ -185,6 +185,7 @@ def profile():
         "category_breakdown": category_breakdown,
         "transactions": [
             {
+                "id": row["id"],
                 "date": row["date"],
                 "description": row["description"],
                 "category": row["category"],
@@ -268,9 +269,54 @@ def add_expense():
 
 
 
-@app.route("/expenses/<int:id>/edit")
+@app.route("/expenses/<int:id>/edit", methods=["GET", "POST"])
+@login_required
 def edit_expense(id):
-    return "Edit expense — coming in Step 8"
+    categories = ["Food", "Transport", "Bills", "Health", "Entertainment", "Shopping", "Other"]
+    user_id = session.get("user_id")
+
+    expense = get_expense_by_id(id)
+    if not expense or expense["user_id"] != user_id:
+        return "Expense not found or unauthorized", 404
+
+    if request.method == "POST":
+        amount = request.form.get("amount")
+        category = request.form.get("category")
+        date = request.form.get("date")
+        description = request.form.get("description")
+
+        # Validation
+        if not amount or not category or not date:
+            return render_template("edit_expense.html", expense=expense, categories=categories, error="Amount, category, and date are required.")
+
+        try:
+            amount_val = float(amount)
+            if amount_val <= 0:
+                raise ValueError("Amount must be positive.")
+        except ValueError:
+            return render_template("edit_expense.html", expense=expense, categories=categories, error="Please enter a valid positive amount.")
+
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            return render_template("edit_expense.html", expense=expense, categories=categories, error="Please enter a valid date.")
+
+        if category not in categories:
+            return render_template("edit_expense.html", expense=expense, categories=categories, error="Invalid category selected.")
+
+        if description and len(description) > 255:
+            return render_template("edit_expense.html", expense=expense, categories=categories, error="Description must be 255 characters or less.")
+
+        try:
+            update_expense(id, amount_val, category, date, description)
+        except sqlite3.Error:
+            logging.exception("Database error while updating expense")
+            return render_template("edit_expense.html", expense=expense, categories=categories, error="An unexpected error occurred while saving the expense. Please try again.")
+
+        return redirect(url_for("profile"))
+
+    return render_template("edit_expense.html", expense=expense, categories=categories)
+
 
 
 @app.route("/expenses/<int:id>/delete")
