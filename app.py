@@ -1,14 +1,18 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
-from database.db import init_db, seed_db, get_db
-from database.queries import get_summary_stats, get_recent_transactions, get_category_breakdown
+import logging
+from database.db import init_db, seed_db, get_db, close_db
+from database.queries import get_summary_stats, get_recent_transactions, get_category_breakdown, create_expense
 from functools import wraps
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 
 app = Flask(__name__)
 app.secret_key = "spendly-super-secret-key"
+app.config['DATABASE'] = 'spendly.db'
+
+app.teardown_appcontext(close_db)
 
 def login_required(f):
     @wraps(f)
@@ -61,8 +65,6 @@ def register():
             db.commit()
         except sqlite3.IntegrityError:
             return render_template("register.html", error="This email is already registered.")
-        finally:
-            db.close()
 
         return redirect(url_for("login"))
 
@@ -80,7 +82,6 @@ def login():
 
         db = get_db()
         user = db.execute("SELECT id, password_hash FROM users WHERE email = ?", (email,)).fetchone()
-        db.close()
 
         if user and check_password_hash(user["password_hash"], password):
             session["user_id"] = user["id"]
@@ -142,7 +143,6 @@ def profile():
         "SELECT name, email, created_at FROM users WHERE id = ?",
         (user_id,)
     ).fetchone()
-    db.close()
 
     # Fetch data using query helpers
     stats_row = get_summary_stats(user_id, date_from, date_to)
@@ -223,9 +223,49 @@ def profile():
 def analytics():
     return render_template("analytics.html")
 
-@app.route("/expenses/add")
+@app.route("/expenses/add", methods=["GET", "POST"])
+@login_required
 def add_expense():
-    return "Add expense — coming in Step 7"
+    categories = ["Food", "Transport", "Bills", "Health", "Entertainment", "Shopping", "Other"]
+
+    if request.method == "POST":
+        amount = request.form.get("amount")
+        category = request.form.get("category")
+        date = request.form.get("date")
+        description = request.form.get("description")
+
+        # Validation
+        if not amount or not category or not date:
+            return render_template("add_expense.html", categories=categories, error="Amount, category, and date are required.")
+
+        try:
+            amount_val = float(amount)
+            if amount_val <= 0:
+                raise ValueError("Amount must be positive.")
+        except ValueError:
+            return render_template("add_expense.html", categories=categories, error="Please enter a valid positive amount.")
+
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            return render_template("add_expense.html", categories=categories, error="Please enter a valid date.")
+
+        if category not in categories:
+            return render_template("add_expense.html", categories=categories, error="Invalid category selected.")
+
+        if description and len(description) > 255:
+            return render_template("add_expense.html", categories=categories, error="Description must be 255 characters or less.")
+
+        try:
+            create_expense(session.get("user_id"), amount_val, category, date, description)
+        except sqlite3.Error:
+            logging.exception("Database error while creating expense")
+            return render_template("add_expense.html", categories=categories, error="An unexpected error occurred while saving the expense. Please try again.")
+
+        return redirect(url_for("profile"))
+
+    return render_template("add_expense.html", categories=categories)
+
 
 
 @app.route("/expenses/<int:id>/edit")

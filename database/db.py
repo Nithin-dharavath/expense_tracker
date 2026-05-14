@@ -1,23 +1,48 @@
 import sqlite3
 import os
+from flask import current_app, g
 from werkzeug.security import generate_password_hash
-
-DATABASE = 'spendly.db'
 
 def get_db():
     """
     Returns a SQLite connection with row_factory and foreign keys enabled.
+    Uses flask.g to persist the connection during a request.
     """
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    if 'db' not in g:
+        g.db = sqlite3.connect(current_app.config['DATABASE'])
+        g.db.row_factory = sqlite3.Row
+        g.db.execute("PRAGMA foreign_keys = ON")
+    return g.db
+
+def close_db(e=None):
+    """
+    Closes the database connection.
+    """
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
+
+def _get_db_path():
+    """
+    Helper to get the database path from the app config or fallback to default.
+    """
+    try:
+        return current_app.config['DATABASE']
+    except RuntimeError:
+        return 'spendly.db'
 
 def init_db():
     """
     Creates all tables using CREATE TABLE IF NOT EXISTS.
     """
-    conn = get_db()
+    # We use a direct connection here because we might not be in a request context
+    # or we want to ensure the tables are created in the correct DB file/memory.
+    # If we are in a request context, use get_db(), otherwise use config.
+    db_path = _get_db_path()
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
 
     # Create users table
     conn.execute('''
@@ -51,7 +76,11 @@ def seed_db():
     """
     Inserts sample data for development. Prevents duplication.
     """
-    conn = get_db()
+    db_path = _get_db_path()
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
 
     # Check if users table already contains data
     user_exists = conn.execute('SELECT 1 FROM users LIMIT 1').fetchone()
