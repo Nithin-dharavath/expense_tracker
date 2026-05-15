@@ -1,5 +1,14 @@
 from database.db import get_db
 
+def delete_expense(expense_id, user_id):
+    """
+    Deletes an expense record if it belongs to the given user.
+    """
+    db = get_db()
+    cursor = db.execute("DELETE FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user_id))
+    db.commit()
+    return cursor.rowcount
+
 def get_expense_by_id(expense_id):
     """
     Fetches a single expense record by its ID.

@@ -6,9 +6,6 @@
 
 <section class="auth-section">
     <div class="auth-container">
-
-        </div>
-
         <div class="auth-card">
             {% if error %}
             <div class="auth-error">{{ error }}</div>
@@ -45,13 +42,12 @@
                     <input type="text" id="description" name="description"
                            class="form-input" placeholder="e.g. Lunch with friends"
                            value="{{ expense.description or '' }}"
-                           >
+                           maxlength="255">
                 </div>
 
                 <button type="submit" class="btn-submit">Update Expense</button>
             </form>
         </div>
-
     </div>
 </section>
 

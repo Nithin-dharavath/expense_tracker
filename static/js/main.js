@@ -1,5 +1,16 @@
 // main.js — students will add JavaScript here as features are built
 
+// Auto-hide flash messages after 1 second
+(function() {
+    const flashMessages = document.querySelectorAll('.flash-message');
+    flashMessages.forEach(msg => {
+        setTimeout(() => {
+            msg.style.opacity = '0';
+            setTimeout(() => msg.remove(), 300);
+        }, 3000);
+    });
+})();
+
 // Video Modal functionality
 (function() {
     const modal = document.getElementById('videoModal');
