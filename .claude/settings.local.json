@@ -9,5 +9,8 @@
       "Skill(code-review-feature)",
       "mcp__github__get_me"
     ]
+  },
+  "enabledPlugins": {
+    "railway@railway-skills": true
   }
 }
